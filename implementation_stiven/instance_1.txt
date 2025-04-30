@@ -1,0 +1,18 @@
+[PROBLEM]
+BATTERY_CAPACITY = 100
+CONSUMPTION_RATE = 1
+PRIVATE_CHARGE_RATE = 1.5
+PUBLIC_CHARGE_RATE = 0.25
+
+[NODES]
+# ID X Y EARLIEST LATEST SERVICE PRIVATE_CHARGER
+0 0 0 0 1000 0 0  # Depot
+1 10 10 50 150 10 1  # Customer with private charger
+2 20 20 100 200 10 0  # Customer without private charger
+3 30 10 150 250 10 1  # Customer with private charger
+4 40 30 200 300 10 0  # Customer without private charger
+
+[CHARGING_STATIONS]
+# ID X Y
+5 15 15
+6 25 25

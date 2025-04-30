@@ -1,0 +1,15 @@
+Total distance: 114.78708664619074
+Total time: 260.0
+Feasible: True
+
+Route:
+0 (0.0, 0.0)
+1 (10.0, 10.0)
+5 (15.0, 15.0) [Charge: 10.00 units, 40.00 time, public]
+2 (20.0, 20.0)
+3 (30.0, 10.0)
+4 (40.0, 30.0)
+0 (0.0, 0.0)
+
+Charging operations:
+Node 5: Charge 10.00 units in 40.00 time
