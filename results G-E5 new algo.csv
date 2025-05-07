@@ -1,0 +1,6 @@
+file_path,optimal_cost,best_cost,gap
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_1.txt,270.0,366.0,35.55555555555556
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_2.txt,222.0,279.0,25.675675675675674
+"tensor(nan, dtype=torch.float64)",,,
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_4.txt,308.0,448.0,45.45454545454545
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_5.txt,243.0,340.0,39.91769547325103

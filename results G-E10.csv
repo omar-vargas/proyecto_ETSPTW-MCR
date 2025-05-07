@@ -1,0 +1,6 @@
+file_path,optimal_cost,best_cost,gap
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_1.txt,270,388.0,43.7037037037037
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_2.txt,222,361.0,62.612612612612615
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_3.txt,312,466.0,49.358974358974365
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_4.txt,308,413.0,34.090909090909086
+Dataset/Problems/Problems/ETSPTW/G-E10/n20w120s10_5.txt,243,401.0,65.02057613168725
