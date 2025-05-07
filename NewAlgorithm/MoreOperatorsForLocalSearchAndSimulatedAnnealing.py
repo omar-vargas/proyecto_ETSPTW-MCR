@@ -1,6 +1,6 @@
 import random
 import math
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Callable
 import re
 import sys
 from collections import defaultdict
@@ -220,21 +220,19 @@ class ETSPTW_MCR:
 
     def initialize_solution(self) -> Dict:
         # Initial solution (sorted by l_i)
+        random.shuffle(self.nodes)
+        
         x_solution = {
-            'route': [self.depot] + sorted(self.nodes, key=lambda x: x.latest) + [self.depot],
+            'route': [self.depot] + self.nodes + [self.depot],
             'charging_ops': {},
             'feasible': False,
             'total_distance': 0,
             'total_time': 0
         }
 
+        
+        x_solution = self.apply_simulated_annealing(x_solution, self.calculate_total_delay) #Or apply local search
         delay = self.calculate_total_delay(x_solution)
-        
-        if delay > 0:
-            x_solution = self.apply_simulated_annealing(x_solution) #Or apply local search
-            delay = self.calculate_total_delay(x_solution)
-
-        
         
         x_solution['feasible'] = (delay <= 0)
         x_solution['total_distance'] = self._calculate_route_distance(
@@ -258,6 +256,14 @@ class ETSPTW_MCR:
         for i in range(len(route)-1):
             total += self.distance_matrix[(route[i].id, route[i+1].id)]
         return total
+    
+    def _calculate_route_distance_from_solution(self, solution):
+        route = solution['route']
+        total = 0
+        for i in range(len(route)-1):
+            total += self.distance_matrix[(route[i].id, route[i+1].id)]
+        return total
+
 
     # Checks if a solution is time feasible (without considering battery)
     def is_time_feasible(self, solution: Dict) -> bool:
@@ -418,13 +424,13 @@ class ETSPTW_MCR:
         else:
             return new_solution
         
-    def apply_simulated_annealing(self, current_solution: Dict, alpha:int = 0.9995, temp_init:int = 100) -> Dict:
+    def apply_simulated_annealing(self, current_solution: Dict, evaluation_criterion: Callable , alpha:int = 0.9995, temp_init:int = 100) -> Dict:
         
         best_solution = current_solution
-        best_delay = self.calculate_total_delay(current_solution)
+        best_energy = evaluation_criterion(current_solution)
         temperature = temp_init
 
-        while temperature > 1e-8:
+        while temperature > 1e-8 and best_energy > 0:
         
             operator = random.choice(['shift', '2opt', 'swap', 'shuffle'])  
 
@@ -437,23 +443,23 @@ class ETSPTW_MCR:
             elif operator == 'shuffle':
                 new_solution = self.shuffle_move(current_solution)
 
-            current_delay = self.calculate_total_delay(current_solution)
-            new_delay = self.calculate_total_delay(new_solution)
+            current_energy = evaluation_criterion(current_solution)
+            new_energy = evaluation_criterion(new_solution)
 
-            delta_energy = new_delay - current_delay
+            delta_energy = new_energy - current_energy
             if delta_energy < 0:
                 current_solution = new_solution
-                current_delay = new_delay
+                current_energy = new_energy
 
-                if current_delay < best_delay:
-                    print(current_delay) # Eliminar este print
+                if current_energy < best_energy:
+                    print(current_energy) # Eliminar este print
                     best_solution = current_solution
-                    best_delay = current_delay
+                    best_energy = current_energy
             else:
                 acceptance_probability = math.exp(-delta_energy/temperature)
                 if random.random() < acceptance_probability:
                     current_solution = new_solution
-                    current_delay = new_delay
+                    current_energy = new_energy
             
             temperature = temperature*alpha
         return best_solution
@@ -942,7 +948,7 @@ class ETSPTW_MCR:
 
         for iteration in range(max_iter):
             # Local search for TSPTW
-            new_tsp = self.apply_local_search(current_tsp)
+            new_tsp = self.apply_simulated_annealing(current_tsp, self._calculate_route_distance_from_solution, alpha=0.95)
 
             # Update best TSP solution
             if new_tsp['total_distance'] < self.best_tsp_solution['total_distance']:
@@ -1010,6 +1016,6 @@ if __name__ == "__main__":
 
     problem = ETSPTW_MCR.from_file(input_filename)
 
-    solution = problem.hybrid_sa_ts(max_iter=1000)
+    solution = problem.hybrid_sa_ts(max_iter=100)
     problem.save_solution(solution, output_filename)
     print(f"Solution saved to file '{output_filename}'")
