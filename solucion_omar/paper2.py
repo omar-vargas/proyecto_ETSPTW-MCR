@@ -545,42 +545,43 @@ def hybrid_sa_ts(
     return best_solution, best_cost, cost_progression, best_cost_progression
 
 
+if __name__ == '__main__':
 
-data = read_etsp_file('n20w120s10_1.txt')
-filtered_matrix, last_node = filter_arcs_by_time_window(data['nodes'], data['distance_matrix'])
-best_solution, best_cost, cost_progression, best_cost_progression = hybrid_sa_ts(
-    nodes=data['nodes'],
-    distance_matrix=data['distance_matrix'],
-    num_customers=data['num_customers'],
-    battery_capacity=data['battery_capacity'],
-    energy_rate=data['energy_rate'],
-    max_iterations=15000,     
-    T0=10000,                 
-    alpha=0.95,               
-    cooling_interval=100,     
-    perturbation_interval=500, 
-    R=30,                     
-    tabu_tenure_moves=400,     
-    tabu_tenure_stations=75    
-)
+    data = read_etsp_file('n20w120s10_1.txt')
+    filtered_matrix, last_node = filter_arcs_by_time_window(data['nodes'], data['distance_matrix'])
+    best_solution, best_cost, cost_progression, best_cost_progression = hybrid_sa_ts(
+        nodes=data['nodes'],
+        distance_matrix=data['distance_matrix'],
+        num_customers=data['num_customers'],
+        battery_capacity=data['battery_capacity'],
+        energy_rate=data['energy_rate'],
+        max_iterations=15000,     
+        T0=10000,                 
+        alpha=0.95,               
+        cooling_interval=100,     
+        perturbation_interval=500, 
+        R=30,                     
+        tabu_tenure_moves=400,     
+        tabu_tenure_stations=75    
+    )
 
-print("========= Resultados ============")
-print("Mejor ruta encontrada:", best_solution)
-print("Costo total:", best_cost)
-print("==================================")
+    print("========= Resultados ============")
+    print("Mejor ruta encontrada:", best_solution)
+    print("Costo total:", best_cost)
+    print("==================================")
 
 
-import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
-plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(12, 6))
 
-plt.plot(cost_progression, label='Costo actual', alpha=0.7, color='blue')
-plt.plot(best_cost_progression, label='Mejor costo histórico', linestyle='--', color='red')
+    plt.plot(cost_progression, label='Costo actual', alpha=0.7, color='blue')
+    plt.plot(best_cost_progression, label='Mejor costo histórico', linestyle='--', color='red')
 
-plt.xlabel('Iteraciones')
-plt.ylabel('Costo')
-plt.title('Evolución del costo durante Hybrid SA/TS')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    plt.xlabel('Iteraciones')
+    plt.ylabel('Costo')
+    plt.title('Evolución del costo durante Hybrid SA/TS')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
