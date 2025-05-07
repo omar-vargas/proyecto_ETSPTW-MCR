@@ -11,7 +11,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["implementation_stiven\\instance_5.txt"]
+            "args": []
         }
     ],
 
