@@ -1,8 +1,4 @@
-
 import random
-import matplotlib.pyplot as plt
-
-
 def read_etsp_file(filename):
     with open(filename, 'r') as file:
         # Leer parámetros generales
@@ -11,7 +7,7 @@ def read_etsp_file(filename):
         battery_capacity = float(file.readline())
         energy_rate = float(file.readline())
 
-        total_nodes = 1 + num_customers + num_stations + 1  
+        total_nodes = 1 + num_customers + num_stations + 1  # 1 depot, V customers, F stations, 1 station at depot
 
         # Leer nodos (esperamos total_nodes líneas)
         nodes = []
@@ -30,6 +26,7 @@ def read_etsp_file(filename):
                 'recharge_rate': float(parts[6])
             }
             nodes.append(node)
+
         # Leer matriz de distancias
         distance_matrix = []
         for line in file:
@@ -52,7 +49,8 @@ def filter_arcs_by_time_window(nodes, distance_matrix, unreachable_value=99999):
     n = len(nodes)
     filtered_matrix = [[unreachable_value for _ in range(n)] for _ in range(n)]
 
-    last_node = n - 1  
+    # Asumimos que el último nodo es el depósito o destino final
+    last_node = n - 1  # Este es el último nodo en la lista
     l_last = nodes[last_node]['l']
 
     for i in range(n):
@@ -72,7 +70,17 @@ def filter_arcs_by_time_window(nodes, distance_matrix, unreachable_value=99999):
 
 
 def generate_initial_solution(nodes,num_customers):
-
+    """
+    Genera una solución inicial ordenando los clientes según su ventana de tiempo final (l_i).
+    Luego, coloca al depósito al inicio y las estaciones de carga en sus posiciones adecuadas.
+    
+    Args:
+        nodes (list): Lista de nodos, cada uno con id, coordenadas, ventanas de tiempo, etc.
+    
+    Returns:
+        list: Ruta inicial con solo los clientes ordenados por su ventana de tiempo l_i.
+    """
+    # Filtrar solo los nodos de clientes (nodos con id de 1 a |V|)
     customer_nodes = nodes[0:num_customers-1]
 
     customer_nodes=[node for node in customer_nodes if node['id'] > 0]
@@ -82,7 +90,7 @@ def generate_initial_solution(nodes,num_customers):
     sorted_customers = sorted(customer_nodes, key=lambda x: x['l'])
     
     # Crear la solución inicial: el depósito es el primer nodo (id 0), seguido de los clientes ordenados
-    initial_solution = [30] + [node['id'] for node in sorted_customers]+[30] # Agregar depósito al inicio
+    initial_solution = [0] + [node['id'] for node in sorted_customers]+[0] # Agregar depósito al inicio
 
     
     return initial_solution
@@ -90,7 +98,17 @@ def generate_initial_solution(nodes,num_customers):
 
 
 def apply_local_search(solution, nodes, distance_matrix):
+    """
+    Aplica un operador de búsqueda local para mejorar la solución.
 
+    Args:
+        solution (list): Ruta actual (lista de IDs de nodos).
+        nodes (list): Lista de nodos con información como los tiempos de llegada e_i y salida l_i.
+        distance_matrix (list): Matriz de distancias entre nodos.
+    
+    Returns:
+        list: Nueva ruta después de aplicar un operador de búsqueda local.
+    """
     # Escoger un operador aleatorio (1-shift, 2-opt, swap)
     move_type = random.choice(['1-shift', '2-opt', 'swap'])
     
@@ -150,7 +168,18 @@ def apply_swap(solution, nodes, distance_matrix):
 
 
 def apply_perturbation(solution, nodes, distance_matrix, R):
+    """
+    Aplica el operador de perturbación: elimina un número aleatorio de nodos y los inserta aleatoriamente.
 
+    Args:
+        solution (list): Ruta actual.
+        nodes (list): Lista de nodos con información sobre cada uno.
+        distance_matrix (list): Matriz de distancias entre nodos.
+        R (int): Número de nodos a eliminar y reinsertar.
+    
+    Returns:
+        list: Ruta modificada después de aplicar la perturbación.
+    """
     # Eliminar R nodos aleatorios de la ruta
     nodes_to_remove = random.sample(solution[1:], R)  # Excluyendo el nodo 0 (depósito)
     new_solution = [node for node in solution if node not in nodes_to_remove]
@@ -163,8 +192,12 @@ def apply_perturbation(solution, nodes, distance_matrix, R):
     return new_solution
 
 def is_time_feasible(solution, nodes, distance_matrix):
+    """
+    Verifica si una ruta es factible en cuanto a las restricciones de ventana de tiempo.
 
-
+    Returns:
+        (bool, float): Factibilidad y tiempo de llegada.
+    """
     current_time = 0  
 
     for i in range(len(solution) - 1):
@@ -183,7 +216,7 @@ def is_time_feasible(solution, nodes, distance_matrix):
 
 
 
-## poner archivo
+
 data = read_etsp_file('n20w120s10_1.txt')
 
 filtered_matrix, last_node = filter_arcs_by_time_window(data['nodes'], data['distance_matrix'])
@@ -293,7 +326,7 @@ class StationInsertionProcedure:
                 total_cost = i_to_k + k_to_j + recharge_time
                 paths.append((total_time, energy_consumed_i_to_k, total_cost, (k['id'],)))
 
-
+        # 2 estaciones
         for k1 in stations:
             for k2 in stations:
                 i_to_k1 = self.distance_matrix[node_i][k1['id']]
@@ -311,7 +344,7 @@ class StationInsertionProcedure:
         return paths
 
     def generate_solution(self, best_label):
- 
+        # Reconstrucción de la ruta completa
         full_route = []
         label = best_label
         labels_dict = {}
@@ -336,6 +369,7 @@ class StationInsertionProcedure:
 
         full_route = full_route[::-1]  # Invertir la ruta para orden correcto
 
+        # 🔥 Corregir si no termina en 0
         if full_route[-1] != 0:
             full_route.append(0)
 
@@ -347,12 +381,18 @@ result = sip.run()
 print(result)
 
 def detect_move(solution_before, solution_after):
-
+    """
+    Detecta el movimiento aplicado entre dos soluciones.
+    Devuelve el par de nodos intercambiados/movidos.
+    """
     for i in range(1, len(solution_before)):
         if solution_before[i] != solution_after[i]:
             return (solution_before[i], solution_after[i])
     return (None, None)
 
+
+import math
+import random
 
 import math
 import random
@@ -394,6 +434,7 @@ def hybrid_sa_ts(
 
     # Inicializar temperatura
     T = T0
+
     # Inicializar listas tabú
     tabu_move_list = []
     tabu_station_insertion_list = []
@@ -426,7 +467,7 @@ def hybrid_sa_ts(
         )
         result_prime = sip_prime.run()
         if result_prime == -1:
-            continue  
+            continue  # No factible
 
         solution_Y_prime, cost_Y_prime = result_prime
 
@@ -466,11 +507,11 @@ def hybrid_sa_ts(
         if len(tabu_station_insertion_list) > tabu_tenure_stations:
             tabu_station_insertion_list.pop(0)
 
-        # Evolución del costo en cada iteración
+        # 🔥 Guardar evolución del costo en cada iteración
         cost_progression.append(cost_Y)
         best_cost_progression.append(best_cost)
 
-        # Enfriamiento
+        # Cooling (enfriamiento)
         if iteration % cooling_interval == 0:
             T = alpha * T
 
@@ -480,6 +521,7 @@ def hybrid_sa_ts(
 
     return best_solution, best_cost, cost_progression, best_cost_progression
 
+import matplotlib.pyplot as plt
 best_solution, best_cost, cost_progression, best_cost_progression = hybrid_sa_ts(
     nodes=data['nodes'],
     distance_matrix=data['distance_matrix'],
@@ -502,6 +544,7 @@ print("Costo total:", best_cost)
 print("==================================")
 
 
+import matplotlib.pyplot as plt
 
 plt.figure(figsize=(12, 6))
 

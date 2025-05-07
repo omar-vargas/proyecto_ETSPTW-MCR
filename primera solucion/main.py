@@ -1,15 +1,19 @@
 # main.py
 
-from preprocess import read_etsp_file, filter_arcs_by_time_window
+from experiment import read_etsp_file, filter_arcs_by_time_window
 from hybrid_sa_ts import HybridSATS
 import matplotlib.pyplot as plt
 
-def main():
+def run_single():
     # 1. Cargar datos
     data = read_etsp_file('n20w120s10_1.txt')
 
-    # 2. Filtrar arcos no factibles según ventanas de tiempo (opcional si quieres probarlo)
-    filtered_matrix, last_node = filter_arcs_by_time_window(data['nodes'], data['distance_matrix'])
+    # (Opcional) 2. Filtrar arcos no factibles según ventanas de tiempo
+    filtered_matrix, last_node = filter_arcs_by_time_window(
+        data['nodes'],
+        data['distance_matrix']
+    )
+    # si no vas a usar filtered_matrix, puedes omitir este paso
 
     # 3. Configurar y correr algoritmo Hybrid SA/TS
     optimizer = HybridSATS(
@@ -18,35 +22,54 @@ def main():
         num_customers=data['num_customers'],
         battery_capacity=data['battery_capacity'],
         energy_rate=data['energy_rate'],
-        max_iterations=15000,         # Según paper
+        max_iterations=45000,         # Según paper
         T0=10000,                     # Temperatura inicial
         alpha=0.95,                   # Factor de enfriamiento
         cooling_interval=100,         # Cada cuántas iteraciones se enfría
         perturbation_interval=500,    # Cada cuántas iteraciones se perturba
         R=30,                         # Número de nodos a perturbar
-        tabu_tenure_moves=400,         # Tamaño de la lista tabu de movimientos
-        tabu_tenure_stations=75        # Tamaño de la lista tabu de estaciones
+        tabu_tenure_moves=400,        # Tamaño de la lista tabu de movimientos
+        tabu_tenure_stations=75,      # Tamaño de la lista tabu de estaciones
+                          # Para reproducibilidad (si tu clase lo admite)
     )
 
-    best_solution, best_cost, cost_progression, best_cost_progression = optimizer.run()
+    return optimizer.run()
 
-    # 4. Mostrar resultados
-    print("========= Resultados ============")
-    print("Mejor ruta encontrada:", best_solution)
-    print("Costo total:", best_cost)
-    print("==================================")
 
-    # 5. Graficar evolución de costos
-    plt.figure(figsize=(12, 6))
-    plt.plot(cost_progression, label='Costo actual', alpha=0.7, color='blue')
-    plt.plot(best_cost_progression, label='Mejor costo histórico', linestyle='--', color='red')
-    plt.xlabel('Iteraciones')
-    plt.ylabel('Costo')
-    plt.title('Evolución del costo durante Hybrid SA/TS')
+def main():
+    n_runs = 10
+    all_costs = []
+    all_solutions = []
+
+    for run_id in range(1, n_runs+1):
+        print(f"\n▶▶▶ Corrida {run_id}/{n_runs}")
+        sol, cost, cost_prog, best_prog = run_single()
+        print(f"  → Mejor coste en ésta corrida: {cost:.2f}")
+        all_costs.append(cost)
+        all_solutions.append(sol)
+
+    # Mostrar resumen
+    print("\n========== Resumen de las 10 ejecuciones ==========")
+    for i, c in enumerate(all_costs, start=1):
+        print(f"Corrida {i:2d}: coste = {c:.2f}")
+    best_overall = min(all_costs)
+    best_run     = all_costs.index(best_overall) + 1
+    best_sol     = all_solutions[best_run-1]
+    print("-------------------------------------------------")
+    print(f"🏆 Mejor de todas: Corrida {best_run} con coste {best_overall:.2f}")
+    print("Ruta:", best_sol)
+    print("=================================================\n")
+
+    # (Opcional) si quieres, puedes graficar la progresión del mejor run:
+    plt.figure(figsize=(10,5))
+    plt.plot(best_prog, label=f'Best progression run {best_run}', linestyle='--', color='red')
+    plt.xlabel('Iteración')
+    plt.ylabel('Mejor coste acumulado')
+    plt.title('Evolución del mejor coste en la mejor corrida')
     plt.legend()
     plt.grid(True)
-    plt.tight_layout()
     plt.show()
+
 
 if __name__ == "__main__":
     main()

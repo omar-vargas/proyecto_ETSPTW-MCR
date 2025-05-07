@@ -16,7 +16,7 @@ def detect_move(solution_before, solution_after):
 class HybridSATS:
     def __init__(
         self, nodes, distance_matrix, num_customers, battery_capacity, energy_rate,
-        max_iterations=1000, T0=100, alpha=0.95,
+        max_iterations=10000, T0=100, alpha=0.95,
         cooling_interval=50, perturbation_interval=100, R=2,
         tabu_tenure_moves=10, tabu_tenure_stations=5
     ):
@@ -99,11 +99,36 @@ class HybridSATS:
         return new_solution
 
     def apply_perturbation(self, solution):
-        nodes_to_remove = random.sample(solution[1:-1], self.R)
-        new_solution = [node for node in solution if node not in nodes_to_remove]
+        """
+        Quita hasta R nodos del tramo de clientes (solution[1:-1])
+        y los re-inserta en posiciones aleatorias.
+        """
+        # extraemos la parte interior (sin depot inicial y final)
+        middle = solution[1:-1]
+        # si hay menos de 2 clientes o R≤0, no perturbamos
+        if len(middle) <= 1 or self.R <= 0:
+            return solution[:]
+        # no eliminar más de len(middle)-1 para no vaciar middle
+        R_eff = min(self.R, len(middle) - 1)
+        # si tras el tope no hay nada que eliminar, devolvemos copia
+        if R_eff <= 0:
+            return solution[:]
+
+        # elegimos R_eff clientes al azar
+        nodes_to_remove = random.sample(middle, R_eff)
+        # reconstruimos la ruta sin esos nodos
+        new_solution = [n for n in solution if n not in nodes_to_remove]
+        # los reinsertamos uno a uno en posición aleatoria entre 1 y len-1
         for node in nodes_to_remove:
-            insert_position = random.randint(1, len(new_solution) - 1)
-            new_solution.insert(insert_position, node)
+            pos = random.randint(1, len(new_solution) - 1)
+            new_solution.insert(pos, node)
+
+        # garantizamos depot al inicio y fin
+        if new_solution[0] != solution[0]:
+            new_solution.insert(0, solution[0])
+        if new_solution[-1] != solution[-1]:
+            new_solution.append(solution[-1])
+
         return new_solution
 
     def run(self):
