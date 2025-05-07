@@ -218,6 +218,161 @@ class ETSPTW_MCR:
                 distance_matrix[(n1.id, n2.id)] = n1.distance_to(n2)
         return distance_matrix
 
+
+
+    def create_starting_population(self, population_size:int  = 100):
+        population = [{
+            'route': [self.depot] + sorted(self.nodes, key=lambda x: x.latest) + [self.depot],
+            'charging_ops': {},
+            'feasible': False,
+            'total_distance': 0,
+            'total_time': 0}]
+            
+        for i in range(1, population_size):
+            individual_route = self.nodes.copy()
+            random.shuffle(individual_route)
+            individual_route = [self.depot] + individual_route + [self.depot]
+
+            individual = {
+            'route': individual_route,
+            'charging_ops': {},
+            'feasible': False,
+            'total_distance': 0,
+            'total_time': 0
+        }
+            population.append(individual) 
+
+        return population
+    
+    def natural_selection(self, old_generation):
+        survivors = []
+        random.shuffle(old_generation)
+        mid = len(old_generation)//2 
+
+        if len(old_generation)%2 == 1:
+            old_generation.pop()
+        
+        for i in range(mid):
+            if self.calculate_total_delay(old_generation[i]) < self.calculate_total_delay(old_generation[mid + i]):
+                survivors.append(old_generation[i])
+            else:
+                survivors.append(old_generation[mid + i])
+
+        return survivors
+
+    def create_offspring(self, sol_A, sol_B):
+        offspring = []
+        start = random.randint(1, len(sol_A['route'])-1)
+        end = random.randint(1, len(sol_A['route'])-1)
+
+        sol_A_section = sol_A['route'][start:end]
+        sol_A_section_ids = [node.id for node in sol_A_section]
+        sol_B_remeaning_nodes = [node for node in sol_B['route'] if node.id not in sol_A_section_ids]
+
+        for i in range(len(sol_A['route'])):
+            if start <= i < end:
+                offspring.append(sol_A_section.pop(0))
+            else:
+                offspring.append(sol_B_remeaning_nodes.pop(0))
+        
+        return {
+            'route': offspring,
+            'charging_ops': {},
+            'feasible': False,
+            'total_distance': 0,
+            'total_time': 0
+        }
+    
+    def apply_crossover(self, survivors):
+        offsprings = []
+
+        mid = len(survivors) //2 
+        if len(survivors)%2 == 1:
+            survivors.pop()
+
+        for i in range(mid):
+            sol_A = survivors[i]
+            sol_B = survivors[mid+i]
+
+            for j in range(2):
+                offsprings.append(self.create_offspring(sol_A, sol_B))
+                offsprings.append(self.create_offspring(sol_B, sol_A))
+        
+        return offsprings
+    
+    def apply_mutations(self, generation, probability:float = 0.1):
+        new_generation = []
+        for sol in generation:
+            if random.random() < probability:
+                sol = self.apply_local_search(sol)
+            new_generation.append(sol)
+        return new_generation
+
+    def elitism(self, survivors, generation):
+
+        keyFunc = lambda node: self.calculate_total_delay(node)
+        survivors.sort(key=keyFunc)
+        generation.sort(key=keyFunc)
+
+        best_offsprings = survivors[:10] + generation[:-10]
+        best_offsprings.sort(key=keyFunc)
+
+        return best_offsprings
+
+
+
+    def initialize_solution_genetic(self, num_generations: int = 1000) -> Dict:
+        # Initial solution (sorted by l_i)
+
+        x_solution = {
+            'route': [self.depot] + sorted(self.nodes, key=lambda x: x.latest) + [self.depot],
+            'charging_ops': {},
+            'feasible': False,
+            'total_distance': 0,
+            'total_time': 0
+        }
+
+        delay = self.calculate_total_delay(x_solution)
+
+        if delay > 0:
+            old_generation = self.create_starting_population()
+            
+            for i in range(num_generations):
+                survivors = self.natural_selection(old_generation)
+                crossovers = self.apply_crossover(survivors)
+                mutants = self.apply_mutations(crossovers)
+                new_generation = self.elitism(survivors, mutants)
+
+                best_individual = new_generation[0]
+                print(self.calculate_total_delay(best_individual))  #Eliminar este print
+                if self.calculate_total_delay(best_individual) <= 0:
+                    x_solution = best_individual
+                    break
+
+                old_generation = new_generation
+
+
+  
+        delay = self.calculate_total_delay(x_solution)
+  
+        
+        x_solution['feasible'] = (delay <= 0)
+        x_solution['total_distance'] = self._calculate_route_distance(x_solution['route'])
+
+        y_solution = self.station_insertion(x_solution)
+
+        if self.is_etsptwmcr_feasible(y_solution):
+            return x_solution, y_solution
+        else:
+            for _ in range(0, 100):
+                x_solution = self.apply_local_search(x_solution)
+                y_solution = self.station_insertion(x_solution)
+                if self.is_etsptwmcr_feasible(y_solution):
+                    return x_solution, y_solution
+
+        return x_solution, y_solution
+
+
     def initialize_solution(self) -> Dict:
         # Initial solution (sorted by l_i)
         x_solution = {
@@ -407,7 +562,7 @@ class ETSPTW_MCR:
     # Apply local search operators to improve the solution
     def apply_local_search(self, current_solution: Dict, consider_delay: bool = False) -> Dict:
         operator = random.choice(['shift', '2opt', 'swap', 'shuffle'])
-
+        
         if operator == 'shift':
             new_solution = self.one_shift_move(current_solution)
         elif operator == '2opt':
@@ -901,7 +1056,7 @@ class ETSPTW_MCR:
     # Main hybrid SA/TS algorithm.
     def hybrid_sa_ts(self, max_iter: int = 15000) -> Dict:
         # Initialization
-        current_tsp, current_etsptw = self.initialize_solution()
+        current_tsp, current_etsptw = self.initialize_solution_genetic()
         self.best_tsp_solution, self.best_etsptw_solution = current_tsp.copy(), current_etsptw.copy()
 
         temp = self.init_temp
