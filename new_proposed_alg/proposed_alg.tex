@@ -1,0 +1,120 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+\makeatletter
+\def\BState{\State\hskip-\ALG@thistlm}
+\makeatother
+
+\makeatletter
+\newcommand{\phase}[1]{\Statex \hskip\ALG@thistlm \textbf{#1}}
+\makeatother
+
+\begin{document}
+\begin{algorithm}[H]
+\caption{Heuristic for ETSPTW--MCR}
+\label{alg:simple}
+\begin{algorithmic}[1]
+\Require Graph $G=(V\cup\{0\},E)$ with distances $d_{ij}$, time windows $[e_i,\ell_i]$
+\Require Charging stations $F\subseteq V\cup\{0\}$ with depot $0\in F$
+\Require Battery capacity $Q$, rate $h$, charging rates $g_i$
+\Ensure Feasible route $R$ or \emph{infeasible}
+\Procedure{Heuristic}{}
+    \State $T \gets$ \Call{MST}{$G$} rooted at $0$
+    \State $R \gets$ \Call{PreorderWalk}{$T$}; append depot $0$ to the end
+    % ---------- PHASE 1 ----------
+    \phase{Phase 1: make route time-window feasible}
+    \For{$k \gets 1$ \textbf{to} $|R|-1$}
+        \State compute arrival $a_k$ at $R_k$
+        \If{$a_k>\ell_{R_k}$}             \Comment{late → shift customer forward}
+            \State remove $u\gets R_k$
+            \State $j \gets$ \Call{FindEarliestPosition}{$u,k,R$}
+            \If{$j=\textsc{None}$}\Return \emph{infeasible}
+            \Else\State insert $u$ at position $j$
+            \EndIf
+        \ElsIf{$a_k<e_{R_k}$}
+            \State \textbf{wait} until $e_{R_k}$
+        \EndIf
+    \EndFor
+    % ---------- PHASE 2 ----------
+    \phase{Phase 2: make route battery-feasible}
+    \State $b \gets Q$  \Comment{residual battery}
+    \For{$k \gets 1$ \textbf{to} $|R|-1$}
+        \State $e \gets h\cdot d_{R_k,R_{k+1}}$ \Comment{energy to next vertex}
+        \If{$b<e$}                         \Comment{cannot reach $R_{k+1}$}
+            \State $s \gets$ \Call{FindInsertableStation}{$k,R,b$}
+            \If{$s=\textsc{None}$} \Return \emph{infeasible}
+            \Else
+                \State insert $s$ at position $k+1$ in $R$
+                \State $b \gets Q$          \Comment{full recharge}
+                \State \textbf{continue}    \Comment{re-evaluate hop after insertion}
+            \EndIf
+        \EndIf
+        \State $b \gets b-e$               \Comment{consume energy and move on}
+    \EndFor
+    \State \Return $R$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\textsc{FindInsertableStation}$(k,R,b)$}
+\label{alg:findstation}
+\begin{algorithmic}[1]
+\Require Index $k$ ($1\le k<|R|$), current route $R$, residual battery $b$
+\Ensure Station $s$ to insert after $R_k$ or \textsc{None}
+\Function{FindInsertableStation}{$k,R,b$}
+    \State $best \gets \textsc{None}$,\; $bestDetour \gets \infty$
+    \State $i \gets R_k$, $j \gets R_{k+1}$
+    \State $\textit{slack} \gets \textit{tailSlack}[k]$    \Comment{cumulative spare time from $k$ onward}
+    \ForAll{$s \in F \setminus R$}                         \Comment{stations not yet on the tour}
+        \State $e_1 \gets h\cdot d_{i,s}$                  \Comment{energy depot $R_k\!\rightarrow\!s$}
+        \If{$b < e_1$}\ \textbf{continue}\EndIf           \Comment{cannot even reach $s$}
+        \State $extra \gets d_{i,s}+d_{s,j}-d_{i,j}$       \Comment{detour distance}
+        \If{$extra > \textit{slack}$}\ \textbf{continue}\EndIf
+        \If{$extra < bestDetour$}
+            \State $best \gets s$;\quad $bestDetour \gets extra$
+        \EndIf
+    \EndFor
+    \State \Return $best$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+%------------------------------------------------------------------
+%  Sub-routine: earliest index j > k where customer u can be re-inserted
+%------------------------------------------------------------------
+\begin{algorithm}[H]
+\caption{\textsc{FindEarliestPosition}$(u,k,R)$}
+\label{alg:findpos}
+\begin{algorithmic}[1]
+\Require Customer $u$ was removed from index $k$ of route $R$
+\Ensure Smallest $j>k$ that keeps every arrival $\le\ell$, or \textsc{None}
+\Function{FindEarliestPosition}{$u,k,R$}
+    \State $prev \gets R_{k}$                       \Comment{vertex before the gap}
+    \State $clock \gets \textit{arrivalTime}(prev)$
+    \State $slack \gets \textit{tailSlack}[k]$      \Comment{spare time downstream}
+    \For{$j \gets k+1$ \textbf{to} $|R|$}           \Comment{single pass over suffix}
+        \State $next \gets R_{j}$
+        \State $detour \gets d_{prev,u}+d_{u,next}-d_{prev,next}$
+        \State $t_u \gets clock + d_{prev,u}$       \Comment{arrival at $u$}
+        \If{$t_u < e_u$}
+            \State $wait \gets e_u - t_u$; \quad $t_u \gets e_u$
+            \State $detour \gets detour + wait$
+        \Else
+            \State $wait \gets 0$
+        \EndIf
+        \If{$t_u \le \ell_u \,\land\, detour \le slack$}
+            \State \Return $j$                      \Comment{earliest feasible slot}
+        \EndIf
+        \State $clock \gets clock + d_{prev,next}$  \Comment{move on without $u$}
+        \If{$clock < e_{next}$} \State $clock \gets e_{next}$ \EndIf
+        \State $slack \gets \min\bigl(slack,\,\ell_{next}-clock\bigr)$
+        \State $prev \gets next$
+    \EndFor
+    \State \Return \textsc{None}                    \Comment{no legal position found}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+\end{document}
