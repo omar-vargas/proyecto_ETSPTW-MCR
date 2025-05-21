@@ -1,8 +1,8 @@
-PWD /Volumes/Extreme SSD/master/analisis_de_algoritmos/proyecto_ETSPTW-MCR/proposed_alg
+PWD /Volumes/Extreme SSD/master/analisis_de_algoritmos/proyecto_ETSPTW-MCR/new_proposed_alg
 INPUT /usr/local/texlive/2024/texmf.cnf
 INPUT /usr/local/texlive/2024/texmf-dist/web2c/texmf.cnf
 INPUT /usr/local/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt
-INPUT /Volumes/Extreme SSD/master/analisis_de_algoritmos/proyecto_ETSPTW-MCR/proposed_alg/proposed_alg.tex
+INPUT /Volumes/Extreme SSD/master/analisis_de_algoritmos/proyecto_ETSPTW-MCR/new_proposed_alg/proposed_alg.tex
 OUTPUT proposed_alg.log
 INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/base/article.cls
 INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/base/article.cls
@@ -29,6 +29,14 @@ INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/algorithmicx/algpseudocode.st
 INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/algorithmicx/algpseudocode.sty
 INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/algorithmicx/algorithmicx.sty
 INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/algorithmicx/algorithmicx.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/geometry/geometry.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/geometry/geometry.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/graphics/keyval.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/graphics/keyval.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/generic/iftex/ifvtex.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/generic/iftex/ifvtex.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/generic/iftex/iftex.sty
+INPUT /usr/local/texlive/2024/texmf-dist/tex/generic/iftex/iftex.sty
 INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 INPUT /usr/local/texlive/2024/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 INPUT ./proposed_alg.aux

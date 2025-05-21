@@ -11,9 +11,11 @@
 \newcommand{\phase}[1]{\Statex \hskip\ALG@thistlm \textbf{#1}}
 \makeatother
 
+\usepackage[margin=1in, top=1.5in]{geometry}
 \begin{document}
+
 \begin{algorithm}[H]
-\caption{Heuristic for ETSPTW--MCR}
+\caption{Heuristic for ETSPTW--MCR (Improved)}
 \label{alg:simple}
 \begin{algorithmic}[1]
 \Require Graph $G=(V\cup\{0\},E)$ with distances $d_{ij}$, time windows $[e_i,\ell_i]$
@@ -21,70 +23,72 @@
 \Require Battery capacity $Q$, rate $h$, charging rates $g_i$
 \Ensure Feasible route $R$ or \emph{infeasible}
 \Procedure{Heuristic}{}
-    \State $T \gets$ \Call{MST}{$G$} rooted at $0$
-    \State $R \gets$ \Call{PreorderWalk}{$T$}; append depot $0$ to the end
     % ---------- PHASE 1 ----------
-    \phase{Phase 1: make route time-window feasible}
+    \State $T \gets$ \Call{MST}{$G$} rooted at $0$
+    \phase{Phase 1: create TSP route}
+    \State $R \gets$ \Call{PreorderWalk}{$T$}; append depot $0$ to the end
+
+    % ---------- PHASE 2 ----------
+    \phase{Phase 2: make route time window feasible}
     \For{$k \gets 1$ \textbf{to} $|R|-1$}
         \State compute arrival $a_k$ at $R_k$
         \If{$a_k>\ell_{R_k}$}             \Comment{late → shift customer forward}
             \State remove $u\gets R_k$
             \State $j \gets$ \Call{FindEarliestPosition}{$u,k,R$}
-            \If{$j=\textsc{None}$}\Return \emph{infeasible}
+            \If{$j=\textsc{None}$} \Return \emph{infeasible}
             \Else\State insert $u$ at position $j$
             \EndIf
         \ElsIf{$a_k<e_{R_k}$}
+            \If{$R_k$ is a private station}
+                \State $wait \gets e_{R_k} - a_k$
+                \State $x \gets g_{R_k} \cdot wait$
+                \State \textbf{charge battery by $x$ during idle time}
+            \EndIf
             \State \textbf{wait} until $e_{R_k}$
         \EndIf
     \EndFor
-    % ---------- PHASE 2 ----------
-    \phase{Phase 2: make route battery-feasible}
+
+    % ---------- PHASE 3 ----------
+    \phase{Phase 3: make route battery feasible}
     \State $b \gets Q$  \Comment{residual battery}
     \For{$k \gets 1$ \textbf{to} $|R|-1$}
-        \State $e \gets h\cdot d_{R_k,R_{k+1}}$ \Comment{energy to next vertex}
-        \If{$b<e$}                         \Comment{cannot reach $R_{k+1}$}
+        \State $i \gets R_k$;\quad $j \gets R_{k+1}$
+        \State $e \gets h \cdot d_{i,j}$  \Comment{energy to next node}
+        \If{$b < e$}
+            \If{$i$ is a private charging station}
+                \State $t_i \gets \textit{arrivalTime}(i)$
+                \State $x \gets e - b$ \Comment{missing energy}
+                \State $\Delta t \gets x / g_i$
+                \State $t_j \gets t_i + \Delta t + d_{i,j}$
+                \If{$t_j \le \ell_j$}
+                    \State $b \gets b + x$ \Comment{partial charge only what is needed}
+                    \State \textbf{continue}
+                \EndIf
+            \EndIf
             \State $s \gets$ \Call{FindInsertableStation}{$k,R,b$}
-            \If{$s=\textsc{None}$} \Return \emph{infeasible}
+            \If{$s = \textsc{None}$}
+                \State $(s_1, s_2) \gets$ \Call{FindTwoStations}{$k,R,b$}
+                \If{$s_1 = \textsc{None} \lor s_2 = \textsc{None}$} \Return \emph{infeasible}
+                \Else 
+                    \State insert $s_1$ at $k+1$, $s_2$ at $k+2$ in $R$
+                    \State $b \gets Q$ \Comment{full charge assumed across both}
+                    \State \textbf{continue}
+                \EndIf
             \Else
-                \State insert $s$ at position $k+1$ in $R$
-                \State $b \gets Q$          \Comment{full recharge}
-                \State \textbf{continue}    \Comment{re-evaluate hop after insertion}
+                \State insert $s$ at $k+1$ in $R$
+                \State $x \gets Q - b$ 
+                \State $b \gets b + x$
+                \State \textbf{continue}
             \EndIf
         \EndIf
-        \State $b \gets b-e$               \Comment{consume energy and move on}
+        \State $b \gets b - e$
     \EndFor
     \State \Return $R$
 \EndProcedure
 \end{algorithmic}
 \end{algorithm}
+\vspace{2em}
 
-\begin{algorithm}[H]
-\caption{\textsc{FindInsertableStation}$(k,R,b)$}
-\label{alg:findstation}
-\begin{algorithmic}[1]
-\Require Index $k$ ($1\le k<|R|$), current route $R$, residual battery $b$
-\Ensure Station $s$ to insert after $R_k$ or \textsc{None}
-\Function{FindInsertableStation}{$k,R,b$}
-    \State $best \gets \textsc{None}$,\; $bestDetour \gets \infty$
-    \State $i \gets R_k$, $j \gets R_{k+1}$
-    \State $\textit{slack} \gets \textit{tailSlack}[k]$    \Comment{cumulative spare time from $k$ onward}
-    \ForAll{$s \in F \setminus R$}                         \Comment{stations not yet on the tour}
-        \State $e_1 \gets h\cdot d_{i,s}$                  \Comment{energy depot $R_k\!\rightarrow\!s$}
-        \If{$b < e_1$}\ \textbf{continue}\EndIf           \Comment{cannot even reach $s$}
-        \State $extra \gets d_{i,s}+d_{s,j}-d_{i,j}$       \Comment{detour distance}
-        \If{$extra > \textit{slack}$}\ \textbf{continue}\EndIf
-        \If{$extra < bestDetour$}
-            \State $best \gets s$;\quad $bestDetour \gets extra$
-        \EndIf
-    \EndFor
-    \State \Return $best$
-\EndFunction
-\end{algorithmic}
-\end{algorithm}
-
-%------------------------------------------------------------------
-%  Sub-routine: earliest index j > k where customer u can be re-inserted
-%------------------------------------------------------------------
 \begin{algorithm}[H]
 \caption{\textsc{FindEarliestPosition}$(u,k,R)$}
 \label{alg:findpos}
@@ -117,4 +121,60 @@
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\textsc{FindInsertableStation}$(k,R,b)$}
+\label{alg:findstation}
+\begin{algorithmic}[1]
+\Require Index $k$ ($1\le k<|R|$), current route $R$, residual battery $b$
+\Ensure Station $s$ to insert after $R_k$ or \textsc{None}
+\Function{FindInsertableStation}{$k,R,b$}
+    \State $best \gets \textsc{None}$,\; $bestDetour \gets \infty$
+    \State $i \gets R_k$, $j \gets R_{k+1}$
+    \State $\textit{slack} \gets \textit{tailSlack}[k]$    \Comment{cumulative spare time from $k$ onward}
+    \ForAll{$s \in F \setminus R$}                         \Comment{stations not yet on the tour}
+        \State $e_1 \gets h\cdot d_{i,s}$                  \Comment{energy depot $R_k\!\rightarrow\!s$}
+        \If{$b < e_1$}\ \textbf{continue}\EndIf           \Comment{cannot even reach $s$}
+        \State $extra \gets d_{i,s}+d_{s,j}-d_{i,j}$       \Comment{detour distance}
+        \If{$extra > \textit{slack}$}\ \textbf{continue}\EndIf
+        \If{$extra < bestDetour$}
+            \State $best \gets s$;\quad $bestDetour \gets extra$
+        \EndIf
+    \EndFor
+    \State \Return $best$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{\textsc{FindTwoStations}$(k,R,b)$}
+\label{alg:findtwostations}
+\begin{algorithmic}[1]
+\Require Index $k$ ($1\le k<|R|$), route $R$, residual battery $b$
+\Ensure Two stations $(s_1, s_2)$ to insert after $R_k$ or $(\textsc{None}, \textsc{None})$
+\Function{FindTwoStations}{$k,R,b$}
+    \State $bestPair \gets (\textsc{None}, \textsc{None})$,\; $bestDetour \gets \infty$
+    \State $i \gets R_k$;\quad $j \gets R_{k+1}$
+    \State $\textit{slack} \gets \textit{tailSlack}[k]$
+    \ForAll{$s_1 \in F \setminus R$}
+        \State $e_1 \gets h \cdot d_{i,s_1}$
+        \If{$b < e_1$} \textbf{continue} \EndIf
+        \State $b_1 \gets Q$ \Comment{assume full charge at $s_1$}
+        \ForAll{$s_2 \in F \setminus R \setminus \{s_1\}$}
+            \State $e_2 \gets h \cdot d_{s_1,s_2}$
+            \If{$b_1 < e_2$} \textbf{continue} \EndIf
+            \State $e_3 \gets h \cdot d_{s_2,j}$
+            \If{$Q < e_3$} \textbf{continue} \EndIf
+            \State $extra \gets d_{i,s_1} + d_{s_1,s_2} + d_{s_2,j} - d_{i,j}$
+            \If{$extra > \textit{slack}$} \textbf{continue} \EndIf
+            \If{$extra < bestDetour$}
+                \State $bestPair \gets (s_1, s_2)$;\quad $bestDetour \gets extra$
+            \EndIf
+        \EndFor
+    \EndFor
+    \State \Return $bestPair$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
 \end{document}
